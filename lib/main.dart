@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:backdrop/backdrop.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -32,9 +33,13 @@ class _MyAppState extends State<MyApp> {
   }
 
   Future<String> chatWithGPT(String message, String apiKeyPersonal) async {
-    String apiEnviar = apiKeyPersonal ?? apiKey;
-    print(apiEnviar);
-    final response = await http.post(
+    String apiEnviar = '';
+    if (apiKeyPersonal.isEmpty) {
+      apiEnviar = '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';
+    } else {
+      apiEnviar = apiKeyPersonal;
+    }
+    var response = await http.post(
       Uri.parse('https://api.openai.com/v1/chat/completions'),
       headers: {
         'Content-Type': 'application/json; charset=utf-8',
@@ -58,85 +63,119 @@ class _MyAppState extends State<MyApp> {
   void _handleSubmit(String message, String apiKeyPersonal) async {
     myController.clear();
     setState(() {
-      chatLog += '--YO: $message\n';
+      chatLog += 'Yo: $message\n';
     });
     final response = await chatWithGPT(message, apiKeyPersonal);
     setState(() {
-      chatLog += '--elsape_GPT: $response\n';
+      chatLog += 'Chat GPT: $response\n';
     });
   }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: Scaffold(
-        appBar: AppBar(
-          title: Text('ChatGPT con juegos de azar'),
+      home: BackdropScaffold(
+        appBar: BackdropAppBar(
+          title: const Text("Chat GPT"),
+          centerTitle: true,
+          actions: const <Widget>[
+            BackdropToggleButton(
+              icon: AnimatedIcons.list_view,
+            )
+          ],
+          leading: Icon(Icons.arrow_back_sharp),
         ),
-        body: Column(
+        backLayer: SingleChildScrollView(
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text("Token personal: "),
+                  ),
+                  Expanded(
+                    child: TextFormField(
+                      controller: apiController,
+                    ),
+                  ),
+                ],
+              )
+            ],
+          ),
+        ),
+        subHeader: const BackdropSubHeader(
+          title: Text("Sub Header"),
+        ),
+        frontLayer: Column(
           children: <Widget>[
             Expanded(
-                flex: 1,
-                child: SingleChildScrollView(
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                              child: Text("Máximo de caracteres a responder:")),
-                          Expanded(
-                            flex: 2,
-                            child: TextField(
-                              decoration: InputDecoration(hintText: 'Ejm: 50'),
+              child: ListView.builder(
+                physics: const BouncingScrollPhysics(),
+                reverse: false,
+                itemCount: chatLog.split('\n').length,
+                itemBuilder: (BuildContext context, int index) {
+                  final message = chatLog.split('\n')[index];
+                  if (message.isNotEmpty) {
+                    final isUserMessage = message.startsWith('Yo: ');
+                    final text = message.substring(0);
+                    final time = DateTime.now().toString().substring(11, 16);
+                    return Container(
+                      padding: const EdgeInsets.all(8),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        mainAxisAlignment: isUserMessage
+                            ? MainAxisAlignment.end
+                            : MainAxisAlignment.start,
+                        children: <Widget>[
+                          if (!isUserMessage)
+                            const CircleAvatar(
+                              backgroundColor: Colors.grey,
+                              child: Icon(Icons.person, color: Colors.white),
                             ),
-                          )
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: isUserMessage
+                                  ? CrossAxisAlignment.end
+                                  : CrossAxisAlignment.start,
+                              children: <Widget>[
+                                Text(
+                                  text,
+                                  style: const TextStyle(fontSize: 16),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  time,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (isUserMessage)
+                            const CircleAvatar(
+                              backgroundColor: Colors.blue,
+                              child: Icon(
+                                Icons.person,
+                                color: Colors.white,
+                              ),
+                            ),
                         ],
                       ),
-                      Row(
-                        children: [
-                          Expanded(child: Text("Token personal:")),
-                          Expanded(
-                            flex: 2,
-                            child: TextField(
-                              controller: apiController,
-                              decoration:
-                                  InputDecoration(hintText: 'Ejm: sk-Xy...fYs'),
-                            ),
-                          )
-                        ],
-                      ),
-                      Row(
-                        children: [
-                          Expanded(child: Text("Url del modelo:")),
-                          Expanded(
-                            flex: 2,
-                            child: TextField(
-                              decoration: InputDecoration(
-                                  hintText:
-                                      'Ejm: https://api.openai.com/v1/chat/completions'),
-                            ),
-                          )
-                        ],
-                      ),
-                    ],
-                  ),
-                )),
-            Expanded(
-              flex: 3,
-              child: SingleChildScrollView(
-                reverse: true,
-                child: Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: Text(chatLog),
-                ),
+                    );
+                  } else {
+                    return const SizedBox.shrink();
+                  }
+                },
               ),
             ),
             ListTile(
-              leading: Icon(Icons.message),
+              leading: const Icon(Icons.message),
               title: TextField(
                 controller: myController,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   hintText: 'Texto...',
                 ),
                 onSubmitted: (value) {
@@ -144,7 +183,7 @@ class _MyAppState extends State<MyApp> {
                 },
               ),
               trailing: IconButton(
-                icon: Icon(Icons.send),
+                icon: const Icon(Icons.send),
                 onPressed: () =>
                     _handleSubmit(myController.text, apiController.text),
               ),
